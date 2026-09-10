@@ -1,0 +1,63 @@
+{
+	"geode": "5.10.1",
+	"gd": {
+		"win": "2.2081",
+		"android": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
+	},
+	"id": "slideglide.garage-stats",
+	"name": "Garage Stats",
+	"version": "v1.0.0",
+	"developer": "slideglide",
+	"description": "",
+	"dependencies": {
+		"geode.node-ids": ">=v1.23.3",
+		"capeling.garage-stats-menu": ">=v2.0.0"
+	},
+	"settings": {
+		"demons": {
+			"name": "Show Demons",
+			"type": "bool",
+			"default": true,
+			"description": "Shows the amount of demons you have."
+		},
+		"demon-keys": {
+			"name": "Show Demon Keys",
+			"type": "bool",
+			"default": true,
+			"description": "Shows the amount of demon keys you have."
+		},
+		"gold-keys": {
+			"name": "Show Gold Keys",
+			"type": "bool",
+			"default": true,
+			"description": "Shows the amount of gold keys you have."
+		},
+		"creator-points": {
+			"name": "Show Creator Points",
+			"type": "bool",
+			"default": true,
+			"description": "Shows the amount of creator points you have."
+		},
+		"shards": {
+			"name": "Show Shards",
+			"type": "bool",
+			"default": true,
+			"description": "Shows the amount of shards you have."
+		},
+		"completed-shards": {
+			"name": "Show Completed Shards",
+			"type": "bool",
+			"default": true,
+			"description": "Shows completed shards.",
+			"enable-if": "shards"
+		},
+		"achievements": {
+			"name": "Show Achievements",
+			"type": "bool",
+			"default": true,
+			"description": "Shows the amount of unlocked achievements in comparison to total achievements in the game."
+		}
+	}
+}
