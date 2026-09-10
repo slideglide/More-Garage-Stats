@@ -7,12 +7,11 @@
 		"ios": "2.2081"
 	},
 	"id": "slideglide.garage-stats",
-	"name": "Garage Stats",
+	"name": "More Garage Stats",
 	"version": "v1.0.0",
 	"developer": "slideglide",
-	"description": "",
+	"description": "Adds more stats to the icon kit!",
 	"dependencies": {
-		"geode.node-ids": ">=v1.23.3",
 		"capeling.garage-stats-menu": ">=v2.0.0"
 	},
 	"settings": {
