@@ -6,15 +6,15 @@
 using namespace geode::prelude;
 
 template <geode::utils::string::ConstexprString S, typename T>
-    T const& getSettingFast() {
-        static T value = (
-            geode::listenForSettingChanges<T>(S.data(), [](T val) {
-                value = std::move(val);
-            }),
-            geode::getMod()->getSettingValue<T>(S.data())
-        );
-        return value;
-    }
+const T& getSettingFast() {
+    static T value = (
+        geode::listenForSettingChanges<T>(S.data(), [](T val) {
+            value = std::move(val);
+        }),
+        geode::getMod()->getSettingValue<T>(S.data())
+    );
+    return value;
+}
 
 struct StatItem {
     std::string itemID;
@@ -29,7 +29,8 @@ static int getEarnedAchievementCount() {
     if (!am || !am->m_allAchievements) return 0;
 
     constexpr std::array<std::string_view, 3> kIgnorePrefixes = {
-        "geometry.ach.world", "geometry.ach.subzero", "geometry.ach.md"};
+        "geometry.ach.world", "geometry.ach.subzero", "geometry.ach.md"
+    };
 
     int earned = 0;
     for (auto object : am->m_allAchievements->asExt<CCObject>()) {
@@ -38,8 +39,9 @@ static int getEarnedAchievementCount() {
             if (key != "identifier") continue;
 
             const std::string_view str = val->getCString();
-            bool ignored = std::ranges::any_of(
-                kIgnorePrefixes, [&](std::string_view prefix) { return str.starts_with(prefix); });
+            bool ignored = std::ranges::any_of(kIgnorePrefixes, [&](std::string_view prefix) {
+                return str.starts_with(prefix);
+            });
 
             if (!ignored && am->isAchievementEarned(val->getCString())) {
                 earned++;
@@ -50,16 +52,19 @@ static int getEarnedAchievementCount() {
 }
 
 static int getStat(ZStringView key) {
-    return GameStatsManager::sharedState()->getStat(key.c_str());
+    auto gsm = GameStatsManager::sharedState();
+    return gsm ? gsm->getStat(key.c_str()) : 0;
 }
 
-static std::vector<StatItem> makeItems(bool checkSettings = true) {
-    const int bonus1 =
-        std::min({getStat("16"), getStat("17"), getStat("18"), getStat("19"), getStat("20")});
-    const int bonus2 =
-        std::min({getStat("23"), getStat("24"), getStat("25"), getStat("26"), getStat("27")});
+static auto makeItems() {
+    const int bonus1 = std::min({
+        getStat("16"), getStat("17"), getStat("18"), getStat("19"), getStat("20")
+    });
+    const int bonus2 = std::min({
+        getStat("23"), getStat("24"), getStat("25"), getStat("26"), getStat("27")
+    });
 
-    const std::array items = {
+    return std::array{
         StatItem{"demons"_spr, "GJ_demonIcon_001.png", "demons", getStat("5")},
         StatItem{"demon-keys"_spr, "GJ_bigKey_001.png", "demon-keys", getStat("21"), 0.375f},
         StatItem{"gold-keys"_spr, "GJ_bigGoldKey_001.png", "gold-keys", getStat("43"), 0.375f},
@@ -81,16 +86,6 @@ static std::vector<StatItem> makeItems(bool checkSettings = true) {
         StatItem{"soul-shards"_spr, "shard0205ShardBig_001.png", "shards", getStat("27"), 0.35f},
         StatItem{"bonus-shards-two"_spr, "bonusShard2Small_001.png", "completed-shards", bonus2, 0.5f},
     };
-
-    if (!checkSettings) return {items.begin(), items.end()};
-
-    std::vector<StatItem> enabledItems;
-    for (const auto& item : items) {
-        if (Mod::get()->getSettingValue<bool>(item.sprite)) {
-            enabledItems.push_back(item);
-        }
-    }
-    return enabledItems;
 }
 
 static void registerItem(const StatItem& item) {
@@ -100,26 +95,25 @@ static void registerItem(const StatItem& item) {
             return CCSprite::createWithSpriteFrameName(sprite.c_str());
         },
         item.number,
-        item.scale);
-}
-
-static void unregisterItem(const StatItem& item) {
-    stats_api::unregisterStatItem(item.itemID);
+        item.scale
+    );
 }
 
 static void applyRegistrationForSetting(std::string_view settingKey, bool enabled) {
-    for (const auto& item : makeItems(false)) {
+    for (const auto& item : makeItems()) {
         if (item.setting != settingKey) continue;
+
         if (enabled) {
             registerItem(item);
+            stats_api::setDisplayedNumber(item.itemID, item.number);
         } else {
-            unregisterItem(item);
+            stats_api::unregisterStatItem(item.itemID);
         }
     }
 }
 
 void updateCreatorPointsUI(int creatorPoints) {
-    if (!Mod::get()->getSettingValue<bool>("creator-points")) return;
+    if (!getSettingFast<"creator-points", bool>()) return;
     stats_api::setDisplayedNumber("creator-points"_spr, creatorPoints);
 }
 
@@ -137,7 +131,13 @@ static void fetchAndDisplayCreatorPoints() {
 
 $on_mod(Loaded) {
     for (const auto& item : makeItems()) {
-        registerItem(item);
+        if (Mod::get()->getSettingValue<bool>(item.setting)) {
+            registerItem(item);
+        }
+    }
+
+    if (getSettingFast<"creator-points", bool>()) {
+        fetchAndDisplayCreatorPoints();
     }
 
     for (const auto& key : Mod::get()->getSettingKeys()) {
@@ -155,16 +155,10 @@ class $modify(GameLevelManager) {
         GameLevelManager::onGetGJUserInfoCompleted(response, tag);
 
         auto gjam = GJAccountManager::get();
-        if (!gjam) return;
+        if (!gjam || gjam->m_accountID == 0) return;
 
-        auto score = GameLevelManager::get()->userInfoForAccountID(gjam->m_accountID);
-        if (score && score->m_accountID == gjam->m_accountID) {
+        if (auto score = this->userInfoForAccountID(gjam->m_accountID)) {
             updateCreatorPointsUI(score->m_creatorPoints);
         }
     }
 };
-
-$on_game(Loaded) {
-    if (!Mod::get()->getSettingValue<bool>("creator-points")) return;
-    fetchAndDisplayCreatorPoints();
-}
