@@ -36,6 +36,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: hiimjasmine00/download-geode-dependency@main
+        with:
+          repository: slideglide/garage-stats-menu
+          branch: main
+          token: ${{ secrets.TOKEN }}
+
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
