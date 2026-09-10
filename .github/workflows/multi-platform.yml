@@ -40,6 +40,7 @@ jobs:
         with:
           repository: slideglide/garage-stats-menu
           branch: main
+          workflow: multi-platform.yml
           token: ${{ secrets.TOKEN }}
 
       - name: Build the mod
