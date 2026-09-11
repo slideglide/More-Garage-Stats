@@ -1,7 +1,27 @@
-#include <Geode/Geode.hpp>
+#include <Geode/binding/AchievementManager.hpp>
+#include <Geode/binding/GJAccountManager.hpp>
+#include <Geode/binding/GameLevelManager.hpp>
+#include <Geode/binding/GameStatsManager.hpp>
+
+#include <Geode/cocos/cocoa/CCDictionary.h>
+#include <Geode/cocos/cocoa/CCObject.h>
+#include <Geode/cocos/cocoa/CCString.h>
+#include <Geode/cocos/sprite_nodes/CCSprite.h>
+
+#include <Geode/loader/Mod.hpp>
 #include <Geode/loader/SettingV3.hpp>
+
 #include <Geode/modify/GameLevelManager.hpp>
+
+#include <Geode/utils/ZStringView.hpp>
+#include <Geode/utils/string.hpp>
+
 #include <capeling.garage-stats-menu/include/stats_api.hpp>
+
+#include <algorithm>
+#include <array>
+#include <string>
+#include <string_view>
 
 using namespace geode::prelude;
 
@@ -28,24 +48,23 @@ static int getEarnedAchievementCount() {
     auto am = AchievementManager::sharedState();
     if (!am || !am->m_allAchievements) return 0;
 
-    constexpr std::array<std::string_view, 3> kIgnorePrefixes = {
+    static constexpr std::array<std::string_view, 3> kIgnorePrefixes = {
         "geometry.ach.world", "geometry.ach.subzero", "geometry.ach.md"
     };
 
     int earned = 0;
     for (auto object : am->m_allAchievements->asExt<CCObject>()) {
         auto dictionary = static_cast<CCDictionary*>(object);
-        for (const auto& [key, val] : dictionary->asExt<std::string, CCString>()) {
-            if (key != "identifier") continue;
+        auto identifier = static_cast<CCString*>(dictionary->objectForKey("identifier"));
+        if (!identifier) continue;
 
-            const std::string_view str = val->getCString();
-            bool ignored = std::ranges::any_of(kIgnorePrefixes, [&](std::string_view prefix) {
-                return str.starts_with(prefix);
-            });
+        const std::string_view str = identifier->getCString();
+        bool ignored = std::ranges::any_of(kIgnorePrefixes, [&](std::string_view prefix) {
+            return str.starts_with(prefix);
+        });
 
-            if (!ignored && am->isAchievementEarned(val->getCString())) {
-                earned++;
-            }
+        if (!ignored && am->isAchievementEarned(identifier->getCString())) {
+            earned++;
         }
     }
     return earned;
@@ -117,16 +136,18 @@ void updateCreatorPointsUI(int creatorPoints) {
     stats_api::setDisplayedNumber("creator-points"_spr, creatorPoints);
 }
 
+// this is untested, if it doesn't work then womp womp
+// tried not to use manual web requests purely to support GDPS
 static void fetchAndDisplayCreatorPoints() {
     auto gjam = GJAccountManager::get();
     auto glm = GameLevelManager::get();
-    if (!gjam || !glm || gjam->m_accountID == 0) return;
+    if (!gjam || !glm || gjam->m_accountID <= 0) return;
 
     if (auto cachedScore = glm->userInfoForAccountID(gjam->m_accountID)) {
         updateCreatorPointsUI(cachedScore->m_creatorPoints);
-    } else {
-        glm->getGJUserInfo(gjam->m_accountID);
     }
+
+    glm->getGJUserInfo(gjam->m_accountID);
 }
 
 $on_mod(Loaded) {
@@ -155,7 +176,7 @@ class $modify(GameLevelManager) {
         GameLevelManager::onGetGJUserInfoCompleted(response, tag);
 
         auto gjam = GJAccountManager::get();
-        if (!gjam || gjam->m_accountID == 0) return;
+        if (!gjam || gjam->m_accountID <= 0) return;
 
         if (auto score = this->userInfoForAccountID(gjam->m_accountID)) {
             updateCreatorPointsUI(score->m_creatorPoints);
